@@ -169,7 +169,7 @@ def main():
   df_all_minutes = generate_minute_data(df_daily, df_minute)
   print(df_all_minutes)
 
-  for column in COLUMN_LIST:
+  for column in COLUMN_LIST[:4]:
     plot_column_comparison(df_daily, df_all_minutes, column)
 
 if __name__ == '__main__':
