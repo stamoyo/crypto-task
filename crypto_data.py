@@ -5,11 +5,9 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.linear_model import LinearRegression
-from sklearn.impute import SimpleImputer
 import yfinance as yf
 
-#Initalizing the importat Constants
+#Initalizing the important Constants
 START_DAY = date(year=2024, month=7, day=31)
 SYMBOL = "DOGEUSD"
 NUM_DAYS = 31
@@ -93,11 +91,11 @@ def create_daily_df(ticker):
 def fill_missing_values(df):
     df.index = pd.to_datetime(df.index)
 
-    df_resampled = df.resample('T').asfreq()
+    df_resampled = df.resample('min').asfreq()
 
-    hourly_means = df.resample('H').mean()
+    hourly_means = df.resample('h').mean()
 
-    for hour, hour_group in df_resampled.groupby(df_resampled.index.floor('H')):
+    for hour, hour_group in df_resampled.groupby(df_resampled.index.floor('h')):
         df_resampled.loc[hour_group.index, COLUMN_LIST] = \
             hour_group[COLUMN_LIST].fillna(hourly_means.loc[hour])
 
@@ -107,7 +105,7 @@ def fill_missing_values(df):
 
 def generate_minute_data(df_daily, models):
 
-    all_minutes = pd.date_range(df_daily.index.min(), df_daily.index.max(), freq='T')
+    all_minutes = pd.date_range(df_daily.index.min(), df_daily.index.max(), freq='min')
     df_all_minutes = pd.DataFrame(index=all_minutes)
 
     for date in df_daily.index:
@@ -160,18 +158,16 @@ def plot_column_comparison(df_daily, df_all_minutes, column):
     plt.tight_layout()
     plt.show()
 
-def main():
-  df_minute = collect_historical_data(SYMBOL, START_DAY, NUM_DAYS)
-  df_minute = fill_missing_values(df_minute)
+df_minute = collect_historical_data(SYMBOL, START_DAY, NUM_DAYS)
+df_minute = fill_missing_values(df_minute)
 
-  df_daily = create_daily_df("DOGE-USD")
+df_daily = create_daily_df("DOGE-USD")
 
-  df_all_minutes = generate_minute_data(df_daily, df_minute)
-  print(df_all_minutes)
+df_all_minutes = generate_minute_data(df_daily, df_minute)
+print(df_all_minutes)
 
-  for column in COLUMN_LIST[:4]:
+for column in COLUMN_LIST[:4]:
     plot_column_comparison(df_daily, df_all_minutes, column)
 
-if __name__ == '__main__':
-  main()
+
 
