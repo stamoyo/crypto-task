@@ -1,13 +1,7 @@
-##Import all libraries needed
-from datetime import date, datetime, timedelta
-import requests
-import time
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import yfinance as yf
+from libraries import *
 
 #Initalizing the important Constants
+
 START_DAY = date(year=2024, month=7, day=31)
 SYMBOL = "DOGEUSD"
 NUM_DAYS = 31
@@ -17,6 +11,16 @@ COLUMN_LIST = ['open', 'high', 'low', 'close', 'volume']
 POLYGON_API_KEY = "d3tIobwoExakvIhj9u0XisNdsSt7n57O"
 POLYGON_REST_BASEURL = "https://api.polygon.io"
 SYMBOL_PREFIX = "X:"
+
+TABLES_LIST = "crypto_daily", "crypto_minute", "crypto_all_minutes"
+
+hostname = 'localhost'
+database = 'db_crypto'
+username = 'postgres'
+pwd = '123456'
+port_id = 5432
+
+DATABASE_URL = f'postgresql+psycopg2://{username}:{pwd}@{hostname}:{port_id}/{database}'
 
 # Month of data distributed by day using polygon
 
@@ -133,41 +137,47 @@ def generate_minute_data(df_daily, models):
 
     return df_all_minutes
 
-# Function to compare the accuracy of the model
+def create_table(engine: Engine, table_name: str):
+    inspector = inspect(engine)
 
-def plot_column_comparison(df_daily, df_all_minutes, column):
+    if table_name in inspector.get_table_names():
+        print(f"Table '{table_name}' already exists!")
+    else:
+        metadata = MetaData()
 
-    df_all_minutes.index = pd.to_datetime(df_all_minutes.index)
-    df_daily.index = pd.to_datetime(df_daily.index)
+        table = Table(
+            table_name, metadata,
+            Column('date', DateTime, primary_key=True),
+            Column('open', Float, nullable=False),
+            Column('high', Float, nullable=False),
+            Column('low', Float, nullable=False),
+            Column('close', Float, nullable=False),
+            Column('volume', Float, nullable=False)
+        )
 
-    if column not in df_all_minutes.columns or column not in df_daily.columns:
-        raise ValueError(f"Column '{column}' is not valid. Ensure it exists in both DataFrames.")
+        metadata.create_all(engine)
+        print(f"Table '{table_name}' created successfully!")
 
-    df_daily_from_minutes = df_all_minutes.resample('D').agg({
-        column: 'first'
-    })
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(df_daily.index, df_daily[column], label=f'Daily {column}', color='blue', marker='o')
-    plt.plot(df_daily_from_minutes.index, df_daily_from_minutes[column], label=f'Backfilled {column}', color='red', linestyle='--')
-    plt.title(f'{column.capitalize()} Comparison')
-    plt.xlabel('Date')
-    plt.ylabel('Value')
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+def copy_from_dataframe(conn, df, table):
+    buffer = StringIO()
 
-df_minute = collect_historical_data(SYMBOL, START_DAY, NUM_DAYS)
-df_minute = fill_missing_values(df_minute)
+    df.to_csv(buffer, sep='\t', header=False, index=True)
 
-df_daily = create_daily_df("DOGE-USD")
+    buffer.seek(0)
 
-df_all_minutes = generate_minute_data(df_daily, df_minute)
-print(df_all_minutes)
+    cur = conn.cursor()
 
-for column in COLUMN_LIST[:4]:
-    plot_column_comparison(df_daily, df_all_minutes, column)
+    try:
+        cur.copy_from(buffer, table, sep='\t', null='')
+        conn.commit()
+        print("Data inserted successfully!")
+    except Exception as e:
+        conn.rollback()
+        print(f"Error: {e}")
+    finally:
+        cur.close()
+
 
 
 

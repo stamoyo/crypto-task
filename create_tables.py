@@ -1,20 +1,28 @@
-from sqlalchemy import create_engine
-from crypto_data import df_daily, df_all_minutes, df_minute
+from crypto_data import *
 
-hostname = 'localhost'
-database = 'db_crypto'
-username = 'postgres'
-pwd = '123456'
-port_id = 5432
+def main():
+    df_minute = collect_historical_data(SYMBOL, START_DAY, NUM_DAYS)
+    df_minute = fill_missing_values(df_minute)
 
-DATABASE_URL = f'postgresql+psycopg2://{username}:{pwd}@{hostname}:{port_id}/{database}'
+    df_daily = create_daily_df("DOGE-USD")
 
-engine = create_engine(DATABASE_URL)
+    df_all_minutes = generate_minute_data(df_daily, df_minute)
 
+    DF_LIST = df_daily, df_minute, df_all_minutes
 
-df_daily.to_sql(
-    name="crypto_daily",
-    con=engine,
-    if_exists="append",
-    index=True
-)
+    conn = psycopg2.connect(
+        host=hostname,
+        database=database,
+        user=username,
+        password=pwd
+    )
+
+    engine = create_engine(DATABASE_URL)
+
+    for table in TABLES_LIST:
+        create_table(engine, table)
+    for df,table in zip(DF_LIST,TABLES_LIST):
+        copy_from_dataframe(conn, df, table)
+    conn.close()
+if __name__ == '__main__':
+    main()
