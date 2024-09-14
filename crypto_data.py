@@ -1,4 +1,16 @@
-from libraries import *
+from datetime import date, datetime, timedelta
+import requests
+import time
+import numpy as np
+import pandas as pd
+import yfinance as yf
+
+from sqlalchemy import create_engine, Column, Float, DateTime, MetaData, Table
+from sqlalchemy.engine import Engine
+from sqlalchemy import inspect
+
+import psycopg2
+from io import StringIO
 
 #Initalizing the important Constants
 
@@ -12,15 +24,16 @@ POLYGON_API_KEY = "d3tIobwoExakvIhj9u0XisNdsSt7n57O"
 POLYGON_REST_BASEURL = "https://api.polygon.io"
 SYMBOL_PREFIX = "X:"
 
+HOSTNAME = 'localhost'
+DATABASE = 'db_crypto'
+USERNAME = 'postgres'
+PWD = '123456'
+PORT_ID = 5432
+
 TABLES_LIST = "crypto_daily", "crypto_minute", "crypto_all_minutes"
 
-hostname = 'localhost'
-database = 'db_crypto'
-username = 'postgres'
-pwd = '123456'
-port_id = 5432
-
-DATABASE_URL = f'postgresql+psycopg2://{username}:{pwd}@{hostname}:{port_id}/{database}'
+DATABASE_URL = f'postgresql+psycopg2://{USERNAME}:{PWD}@{HOSTNAME}:{PORT_ID}/{DATABASE}'
+engine = create_engine(DATABASE_URL)
 
 # Month of data distributed by day using polygon
 
@@ -178,6 +191,19 @@ def copy_from_dataframe(conn, df, table):
     finally:
         cur.close()
 
+def create_tables():
+    for table in TABLES_LIST:
+        create_table(engine, table)
+def insert_data_in_table(DF_LIST):
+    conn = psycopg2.connect(
+        host=HOSTNAME,
+        database=DATABASE,
+        user=USERNAME,
+        password=PWD
+    )
 
+    for df,table in zip(DF_LIST,TABLES_LIST):
+        copy_from_dataframe(conn, df, table)
 
+    conn.close()
 
